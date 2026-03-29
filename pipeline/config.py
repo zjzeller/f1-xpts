@@ -44,8 +44,8 @@ DRIVERS = [
     {"name": "Esteban Ocon", "team_idx": 8, "abbr": "OCO"},
     {"name": "Nico Hülkenberg", "team_idx": 9, "abbr": "HUL"},
     {"name": "Gabriel Bortoleto", "team_idx": 9, "abbr": "BOR"},
-    {"name": "Jack Doohan", "team_idx": 10, "abbr": "DOO"},
-    {"name": "Mario Andretti Jr", "team_idx": 10, "abbr": "AND"},
+    {"name": "Sergio Perez", "team_idx": 10, "abbr": "PER"},
+    {"name": "Valtteri Bottas", "team_idx": 10, "abbr": "BOT"},
 ]
 
 N_DRIVERS = len(DRIVERS)
