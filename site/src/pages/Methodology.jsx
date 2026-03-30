@@ -23,6 +23,14 @@ export default function Methodology({ data }) {
 
   const driverDist = simDistribution[selectedIdx];
 
+  // Always show sprint scoring in the intro, even on non-sprint weekends
+  const scoringWithSprint = {
+    ...data.scoring,
+    sprint: Object.keys(data.scoring.sprint || {}).length > 0
+      ? data.scoring.sprint
+      : { 1: 8, 2: 7, 3: 6, 4: 5, 5: 4, 6: 3, 7: 2, 8: 1 },
+  };
+
   return (
     <div className="methodology">
       {/* ====== INTRODUCTION ====== */}
@@ -114,21 +122,18 @@ export default function Methodology({ data }) {
           all 23 outcomes (P1 through P22, plus DNF) for every driver — and from that, expected
           fantasy points in our scoring system.
         </p>
-      </section>
 
-      {/* ====== DRIVER SELECTOR ====== */}
-      <div className="driver-selector">
-        <label htmlFor="driver-select">Explore driver</label>
-        <select
-          id="driver-select"
-          value={selectedIdx}
-          onChange={e => setSelectedIdx(Number(e.target.value))}
-        >
-          {data.drivers.map((d, i) => (
-            <option key={d.abbr} value={i}>{d.name} ({d.abbr})</option>
-          ))}
-        </select>
-      </div>
+        <h2>Scoring Rules</h2>
+        <p>
+          Each player picks 5 drivers before qualifying each weekend (same drivers for sprint + race).
+          No budget cap, no qualifying points, no fastest lap. Just finishing position.
+        </p>
+        <ScoringTable scoring={scoringWithSprint} />
+        <p style={{ marginTop: 12 }}>
+          Sprint weekends (China, Miami, Canada, Great Britain, Netherlands, Singapore) add sprint
+          race points on top of the Grand Prix points. A DNF in either race costs -20.
+        </p>
+      </section>
 
       {/* ====== STEP 1: DEVIG ====== */}
       <section className="meth-section">
@@ -227,9 +232,31 @@ export default function Methodology({ data }) {
         <p>
           We decompose strength as <code>log({'\u03BB'}) = {'\u03BC'}_team + {'\u03B4'}_driver</code>, so teammates share
           a team component. This creates natural positive correlation — if one Mercedes is strong,
-          both are. The optimizer fits {'\u03BB'} values by minimizing the squared error between the model's
-          implied probabilities and the devigged odds. Each evaluation runs ~20K simulations,
-          and the optimizer takes ~200 evaluations to converge.
+          both are.
+        </p>
+        <p>
+          The tricky part is fitting. Given a candidate set of {'\u03BB'} values, there's no closed-form way
+          to compute "what does the model predict for P(Russell finishes top 3)?" — you have to
+          simulate it. So the optimizer works like this:
+        </p>
+        <ol style={{ color: 'var(--text-muted)', fontSize: '0.85rem', lineHeight: 1.7, marginLeft: 18, marginBottom: 10, maxWidth: 640 }}>
+          <li style={{ marginBottom: 6 }}>Start with an initial guess for all 22 {'\u03BB'} values (based on the win probabilities).</li>
+          <li style={{ marginBottom: 6 }}>Simulate ~20,000 races using those {'\u03BB'} values. From the simulated results, compute model-implied
+            cumulative probabilities: P(top 1), P(top 3), P(top 6), P(top 10) for each driver.</li>
+          <li style={{ marginBottom: 6 }}>Compare those model probabilities to the devigged market probabilities. The loss function is the
+            sum of squared errors across all drivers and markets, plus regularization terms that penalize
+            large gaps between teammates and extreme {'\u03BB'} values.</li>
+          <li style={{ marginBottom: 6 }}>The optimizer (scipy's <strong>L-BFGS-B</strong> — a quasi-Newton method) uses the loss and its
+            approximate gradient to choose a direction in 22-dimensional parameter space and take a step.
+            L-BFGS-B approximates the Hessian from recent gradient evaluations, so it can take
+            informed steps without computing second derivatives explicitly.</li>
+          <li style={{ marginBottom: 6 }}>Repeat: simulate another ~20K races with the updated {'\u03BB'} values, compute loss, take another step.
+            Each evaluation uses a different random seed to smooth the stochastic loss surface.</li>
+        </ol>
+        <p>
+          After ~100-200 iterations (2-4 million simulated races total), the optimizer converges.
+          The fit loss reported in the dashboard footer tells you how well the final {'\u03BB'} values
+          reproduce the market odds — lower is better.
         </p>
 
         <details className="deep-dive">
@@ -453,15 +480,6 @@ export default function Methodology({ data }) {
         <ProbabilityPlayground data={data} />
       </section>
 
-      {/* ====== SCORING REFERENCE ====== */}
-      <section className="meth-section">
-        <h2>Scoring Rules</h2>
-        <p style={{ marginBottom: 12 }}>
-          Our family league scoring. Each player picks 5 drivers before qualifying each weekend.
-          No budget cap, no qualifying points, no fastest lap.
-        </p>
-        <ScoringTable scoring={data.scoring} />
-      </section>
     </div>
   );
 }
